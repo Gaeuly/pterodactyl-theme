@@ -1,93 +1,149 @@
-<p align="center">
-  <a href="https://pterodactyl.io">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg">
-      <img alt="Pterodactyl" src=".github/assets/logo-light.svg" height="72">
-    </picture>
-  </a>
-</p>
+🚀 Pterodactyl Theme Deployment Guide
+This guide explains how to deploy Pterodactyl Panel (v1.15.2) and Custom Wings (v1.13.4) with the Arix Reverse Proxy feature, using the GitHub repository as the source.
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/pterodactyl/panel/ci.yaml?label=Tests&style=for-the-badge&branch=1.0-develop)
-![Discord](https://img.shields.io/discord/122900397965705216?label=Discord&logo=Discord&logoColor=white&style=for-the-badge)
-![GitHub Releases](https://img.shields.io/github/downloads/pterodactyl/panel/latest/total?style=for-the-badge)
-![GitHub contributors](https://img.shields.io/github/contributors/pterodactyl/panel?style=for-the-badge)
+📋 Prerequisites
 
-# Pterodactyl Panel
+· Fresh VPS (Ubuntu 22.04 / 24.04).
+· Domain & Subdomain (e.g., panel.domain.com & node.domain.com).
+· Root SSH access.
+· Git installed (apt install git).
+· Do not forget to set your Cloudflare DNS to DNS Only (Grey Cloud) for the node & proxy domains during setup.
 
-Pterodactyl® is a free, open-source game server management panel built with PHP, React, and Go. Designed with security
-in mind, Pterodactyl runs all game servers in isolated Docker containers while exposing a beautiful and intuitive
-UI to end users.
+---
 
-Stop settling for less. Make game servers a first class citizen on your platform.
+🚀 PHASE 1: Install Base Panel Pterodactyl
 
-## Pterodactyl v2 Beta is Out!
+1. Run Official Installer
 
-Pterodactyl v2.0.0-beta.1 is now available! The next major version introduces a modernized tech stack, a redesigned admin area, and an extension SDK built into the panel. It remains 100% free and open source under the MIT license.
+```bash
+bash <(curl -s https://pterodactyl-installer.se)
+```
 
-[![Watch: Introducing Pterodactyl v2](.github/assets/v2-video.jpg)](https://www.youtube.com/watch?v=1ER4kv0jVEU)
+· Select 1 (Install Panel).
+· Follow the prompts (domain, email, database setup, admin user).
 
-- [Get started with v2](https://docs.pterodactyl.io/v2/panel/getting-started)
-- [Upgrade from v1](https://docs.pterodactyl.io/v2/upgrading/upgrading-from-v1)
-- [Release notes](https://github.com/pterodactyl/panel/releases/tag/v2.0.0-beta.1)
+2. Clear Default Files
 
-Development happens on the [`2.0-develop`](https://github.com/pterodactyl/panel/tree/2.0-develop) branch. The v2 branch is currently in beta, while `1.0-develop` remains the current stable release line.
+```bash
+# Stop Nginx
+systemctl stop nginx
 
-![Image](https://cdn.pterodactyl.io/site-assets/pterodactyl_v1_demo.gif)
+# Remove default panel folder
+rm -rf /var/www/pterodactyl
+```
 
-## Documentation
+3. Clone Custom Panel from GitHub
 
-* [Panel Documentation](https://pterodactyl.io/panel/1.0/getting_started.html)
-* [Wings Documentation](https://pterodactyl.io/wings/1.0/installing.html)
-* [Community Guides](https://pterodactyl.io/community/about.html)
-* Or, get additional help [via Discord](https://discord.gg/pterodactyl)
+```bash
+cd /var/www
+git clone https://github.com/Gaeuly/pterodactyl-theme.git pterodactyl
+cd pterodactyl
 
-## Sponsors
+# Install PHP dependencies
+composer install --no-dev --optimize-autoloader
 
-I would like to extend my sincere thanks to the following sponsors for helping fund Pterodactyl's development.
-[Interested in becoming a sponsor?](https://github.com/sponsors/pterodactyl)
+# Setup Environment
+cp .env.example .env
+php artisan key:generate
+```
 
-| Company                                                                           | About                                                                                                                                                                                                                                           |
-|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [**Buildurly**](https://buildurly.com/)                                           | Buildurly is a hardware procurement company. They deliver tailored, enterprise-grade hardware solutions designed around your unique needs. From sourcing to delivery, Buildurly's white-glove service ensures a seamless, worry-free, professional experience.                                                                                                                                          |
-| [**Hosturly**](https://hosturly.com/)                                             | Hosturly is an enterprise hosting provider. They provide cost-effective, high-performance, and reliable services, including VPS, Web, Dedicated, and Colocation.                                                                                |
-| [**indifferent broccoli**](https://indifferentbroccoli.com/)                      | indifferent broccoli is a game server hosting and rental company. With them, you get top-notch computer power for your gaming sessions. They destroy lag, latency, and complexity--letting you focus on the fun stuff.                         |
-| [**Infraly, LLC**](https://infraly.co/)                                           | Infraly is an infrastructure company powering the next generation of online services. Through their brands, Infraly delivers cutting-edge solutions across multiple markets. Their vertically integrated approach provides unmatched performance, scalability, and reliability, giving our customers full control.                                                                                     |
-| [**MineStrator**](https://minestrator.com/)                                       | MineStrator is a game server hosting provider. Looking for the most high-end French hosting company for your Minecraft server? More than 24,000 members on our Discord trust us. Give us a try!                                                |
-| [**Physgun**](https://physgun.com/)                                               | Physgun is a game server hosting provider. Most providers rent rack space and rebrand a panel. At Physgun, they engineer the performance, write the features, and staff the support. Physgun truly is game hosting perfected!                   |
-| [**WISP**](https://wisp.gg/)                                                      | WISP is an industry-leading SaaS platform for game server management, designed for hosting companies, gaming organizations, and enthusiasts. WISP combines modern, intuitive interfaces with powerful tools, making server deployment and administration seamless, scalable, and efficient.                                                                                                                 |
+(Edit file .env using nano .env to match your database credentials).
 
+4. Restore Permissions & Build
 
-### Supported Games
+```bash
+chown -R www-data:www-data /var/www/pterodactyl/*
+chmod -R 755 /var/www/pterodactyl/storage /var/www/pterodactyl/bootstrap/cache
 
-Pterodactyl supports a wide variety of games by utilizing Docker containers to isolate each instance. This gives
-you the power to run game servers without bloating machines with a host of additional dependencies.
+# Migrate database & Build React
+php artisan migrate --force
+yarn install
+yarn build:production
+php artisan optimize:clear
 
-Some of our core supported games include:
+# Start Nginx
+systemctl start nginx
+```
 
-* Minecraft — including Paper, Sponge, Bungeecord, Waterfall, and more
-* Rust
-* Terraria
-* Teamspeak
-* Mumble
-* Team Fortress 2
-* Counter Strike: Global Offensive
-* Garry's Mod
-* ARK: Survival Evolved
+---
 
-In addition to our standard nest of supported games, our community is constantly pushing the limits of this software
-and there are plenty more games available provided by the community. Some of these games include:
+🛠️ PHASE 2: Compile Custom Wings (Go)
 
-* Factorio
-* San Andreas: MP
-* Pocketmine MP
-* Squad
-* Xonotic
-* Starmade
-* Discord ATLBot, and most other Node.js/Python discord bots
-* [and many more...](https://eggs.pterodactyl.io)
+1. Install Go & Dependencies
 
-## License
+```bash
+apt update && apt install -y golang git
+```
 
-Pterodactyl® Copyright © 2015 - 2022 Dane Everitt and contributors.
+2. Clone Wings Source v1.13.4
 
-Code released under the [MIT License](./LICENSE.md).
+```bash
+cd ~
+git clone https://github.com/pterodactyl/wings.git
+cd wings
+git checkout v1.13.4
+```
+
+3. Inject Custom Proxy Files
+Copy the modified files from your backup or the theme repo into the Wings source:
+
+· router_server_proxy.go & router.go ➡️ ~/wings/router/
+· root.go ➡️ ~/wings/cmd/
+
+(You can download these files from the wings/ folder in your GitHub repo).
+
+4. Compile Wings
+
+```bash
+# Fetch new dependencies (Lego for SSL)
+go mod tidy
+
+# Compile the binary
+go build -o wings -v
+```
+
+5. Install Custom Wings
+
+```bash
+# Stop old Wings
+systemctl stop wings
+
+# Copy new binary
+cp ~/wings/wings /usr/local/bin/wings
+chmod +x /usr/local/bin/wings
+```
+
+---
+
+⚙️ PHASE 3: Setup Wings (Node)
+
+1. Panel Configuration
+Go to Admin > Nodes > Create Node:
+
+· FQDN: node.domain.com
+· Communicate Over SSL: Use SSL Connection
+· Daemon Port: 8080
+· Behind Proxy: Not Behind Proxy (Cloudflare DNS Only)
+
+2. Generate Token & Configure
+Click Generate Token in Panel, then run:
+
+```bash
+cd /etc/pterodactyl
+sudo wings configure --panel-url https://panel.domain.com --token [YOUR_TOKEN_HERE]
+```
+
+3. Setup SSL for Wings
+
+```bash
+systemctl stop nginx
+certbot certonly --standalone -d node.domain.com
+systemctl start nginx
+```
+
+4. Start Wings
+
+```bash
+systemctl start wings
+systemctl status wings
+```
